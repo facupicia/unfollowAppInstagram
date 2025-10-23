@@ -1,48 +1,95 @@
-Instagram Unfollowers Remover
-A tool to identify and unfollow Instagram users who don't follow you back. Originally a pair of JavaScript scripts, now enhanced with a user-friendly Chrome extension for easier and safer use.
+# Instagram Unfollowers Remover
 
-🚀 Important Update (July 2025)
-Hey everyone!
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-active-brightgreen)
+![Language](https://img.shields.io/badge/language-JavaScript-yellow)
+![Last Updated](https://img.shields.io/badge/last%20updated-Agosto%202025-blue)
 
-Two years ago, I created these scripts, and they've helped a lot of people clean up their Instagram follows. Based on your feedback, I spent a week building a Chrome extension to simplify the process—no more manual console tinkering!
+Una herramienta para **identificar y dejar de seguir usuarios en Instagram** de forma simple.  
+Nació como un conjunto de scripts en JavaScript para ejecutar directamente desde la consola del navegador.  
+Hoy podés usar la [versión GUI](https://43t6lx.csb.app/) o los scripts manuales (para usuarios avanzados).
 
-Key changes:
+---
 
-Removed batch unfollow: Instagram detects and blocks automated bulk actions, so I had to drop this to avoid account risks. Added progress saving: You can now download a file to track your unfollow progress and resume later. Give the extension a try—it's free and straightforward. If you find it helpful, please leave a review on the Chrome Web Store!
+## 🧭 Tabla de contenido
 
-https://chromewebstore.google.com/detail/bepipmjodhjmmdhlahhpalbepooemcii?utm_source=item-share-cb
+- [Actualización importante](#-actualización-importante)
+- [Avisos y legalidad](#-avisos-y-legalidad)
+- [Requisitos](#-requisitos)
+- [Modo consola (scripts)](#-modo-consola-scripts)
+- [Funciones disponibles](#-funciones-disponibles)
+- [Inicialización de lista](#-inicialización-de-lista)
+- [Recomendaciones](#-recomendaciones)
+- [Legal y licencia](#-legal-y-licencia)
+- [English version below](#-english-version)
 
-Legacy Scripts (For Advanced Users)
-If you prefer the original scripts (e.g., for non-Chrome browsers), follow the steps below. Note: These call Instagram's API directly for speed, which increases the risk of detection. Use with caution—the extension is recommended for most users.
+---
 
-⚠️ Warnings
-Steps:
-Login into your IG account and open the developer console tool => (Ctrl+Shift+J(Windows) || ⌘+⌥+I (Mac os)).
+## 🚀 Actualización importante (Agosto 2025)
 
-Copy the code and paste into the console:
+Si preferís los scripts originales (por ejemplo, para navegadores que no sean Chrome), podés usarlos sin problema.  
+⚠️ **Atención:** estos scripts llaman directamente a la API de Instagram y, aunque son rápidos, tienen más riesgo de detección.  
+Por eso, se recomienda la extensión o la versión GUI para la mayoría de los usuarios.
 
-function getCookie(b){let c=`; ${document.cookie}`,a=c.split(`; ${b}=`);if(2===a.length)return a.pop().split(";").shift()}function sleep(a){return new Promise(b=>{setTimeout(b,a)})}function afterUrlGenerator(a){return`https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${ds_user_id}","include_reel":"true","fetch_mutual":"false","first":"24","after":"${a}"}`}function unfollowUserUrlGenerator(a){return`https://www.instagram.com/web/friendships/${a}/unfollow/`}let followedPeople,csrftoken=getCookie("csrftoken"),ds_user_id=getCookie("ds_user_id"),initialURL=`https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${ds_user_id}","include_reel":"true","fetch_mutual":"false","first":"24"}`,doNext=!0,filteredList=[],getUnfollowCounter=0,scrollCicle=0;async function startScript(){for(var c,d,e,b,f,g=Math.floor;doNext;){let a;try{a=await fetch(initialURL).then(a=>a.json())}catch(h){continue}followedPeople||(followedPeople=a.data.user.edge_follow.count),doNext=a.data.user.edge_follow.page_info.has_next_page,initialURL=afterUrlGenerator(a.data.user.edge_follow.page_info.end_cursor),getUnfollowCounter+=a.data.user.edge_follow.edges.length,a.data.user.edge_follow.edges.forEach(a=>{a.node.follows_viewer||filteredList.push(a.node)}),console.clear(),console.log(`%c Progress ${getUnfollowCounter}/${followedPeople} (${parseInt(100*(getUnfollowCounter/followedPeople))}%)`,"background: #222; color: #bada55;font-size: 35px;"),console.log("%c This users don't follow you (Still in progress)","background: #222; color: #FC4119;font-size: 13px;"),filteredList.forEach(a=>{console.log(a.username)}),await sleep(g(400*Math.random())+1e3),scrollCicle++,6<scrollCicle&&(scrollCicle=0,console.log("%c Sleeping 10 secs to prevent getting temp blocked","background: #222; color: ##FF0000;font-size: 35px;"),await sleep(1e4))}c=JSON.stringify(filteredList),d="usersNotFollowingBack.json",e="application/json",b=document.createElement("a"),f=new Blob([c],{type:e}),b.href=URL.createObjectURL(f),b.download=d,b.click(),console.log("%c All DONE!","background: #222; color: #bada55;font-size: 25px;")}startScript()
-It will start checking your followers and print it on the console that ones who are not following you back.
+👉 [Abrir herramienta GUI](https://43t6lx.csb.app/)
 
-Once it finishes printing the users, it will create and download a JSON file with all the users who are not following you back. The more users you have to check, more time it will take
+---
 
-I developed a GUI tool where you can upload the JSON file and select what users you want to keep.
+## ⚠️ Avisos y legalidad
 
-Refresh the IG website. (to remove all traces of the last script)
+- Automatizar acciones en Instagram puede **violar sus Términos de Servicio**.  
+- No compartas tus credenciales ni ejecutes código que no entiendas.  
+- Este proyecto **no está afiliado, asociado ni respaldado por Instagram**.  
+- Usalo **bajo tu propio riesgo**.
 
-Open the developer console tool again and create a variable named listOfUsers like this:
+---
 
-const listOfUsers = //PASTE HERE THE LIST OF USERS FROM YOUR CLIPBOARD, RESULTS FROM GUI TOOL
-The last step is copy and paste the code below the variable listOfUsers:
-function getCookie(b){let c=`; ${document.cookie}`,a=c.split(`; ${b}=`);if(2===a.length)return a.pop().split(";").shift()}function sleep(a){return new Promise(b=>{setTimeout(b,a)})}function unfollowUserUrlGenerator(a){return`https://www.instagram.com/web/friendships/${a}/unfollow/`}const csrftoken=getCookie("csrftoken"),startUnfollow=async()=>{let c=Math.floor,a=0,b=0;for(let d of listOfUsers){try{await fetch(unfollowUserUrlGenerator(d.id),{headers:{"content-type":"application/x-www-form-urlencoded","x-csrftoken":csrftoken},method:"POST",mode:"cors",credentials:"include"})}catch(e){console.log(e)}await sleep(c(2e3*Math.random())+4e3),a++,5<= ++b&&(console.log("%c Sleeping 5 minutes to prevent getting temp blocked","background: #222; color: ##FF0000;font-size: 35px;"),b=0,await sleep(3e5)),console.log(`Unfollowed ${a}/${listOfUsers.length}`)}console.log("%c All DONE!","background: #222; color: #bada55;font-size: 25px;")};startUnfollow()
-Now, this will start unfollowing the users that you selected.
+## 🧩 Requisitos
 
-This script has been tested on Chrome and Safari - It was made in one night probably exists some bugs. Feel free to report or create pull requests
+- Navegador web (Chrome recomendado).
+- Tener sesión iniciada en Instagram.
+- Saber abrir la consola de desarrollador (DevTools):  
+  - `Ctrl + Shift + J` (Windows)  
+  - `⌘ + ⌥ + I` (Mac)
 
-Legal
-Disclaimer: This is not affiliated, associated, authorized, endorsed by, or in any way officially connected with Instagram.
+---
 
-Use it at your own risk!.
+## 🧠 Modo consola (scripts)
 
-Notes
-Part of the script was taken from the repo of @davidarroyo1234
+1. Iniciá sesión en tu cuenta de Instagram.  
+2. Abrí la consola (`Ctrl+Shift+J` o `⌘+⌥+I`).  
+3. Pegá y ejecutá la **primera función**.  
+4. Actualizá la página.  
+5. Volvé a abrir la consola e inicializá tu lista de usuarios (`listOfUsers`).  
+6. Pegá y ejecutá la **segunda función**.
+
+---
+
+## ⚙️ Funciones disponibles
+
+### 1️⃣ `getFollowings()`
+
+Recolecta los usuarios que seguís actualmente en la vista de Instagram.
+
+```javascript
+/**
+ * getFollowings()
+ * Escanea la lista de "siguiendo" visible y devuelve un array de usernames.
+ */
+function getFollowings() {
+  const list = [];
+  const nodes = document.querySelectorAll('a[href^="/"][role="link"]');
+
+  nodes.forEach(node => {
+    try {
+      const href = node.getAttribute('href');
+      if (href && /^\/[A-Za-z0-9._]+\/?$/.test(href)) {
+        const username = href.replace(/\//g, '');
+        if (username && !list.includes(username)) list.push(username);
+      }
+    } catch (e) {}
+  });
+
+  return list;
+}
+
