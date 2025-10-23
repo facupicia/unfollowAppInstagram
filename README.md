@@ -67,29 +67,172 @@ Por eso, se recomienda la extensión o la versión GUI para la mayoría de los u
 
 ## ⚙️ Funciones disponibles
 
-### 1️⃣ `getFollowings()`
+### 1️⃣ `startScript()`
 
 Recolecta los usuarios que seguís actualmente en la vista de Instagram.
 
 ```javascript
 /**
- * getFollowings()
+ * startScript()
  * Escanea la lista de "siguiendo" visible y devuelve un array de usernames.
  */
-function getFollowings() {
-  const list = [];
-  const nodes = document.querySelectorAll('a[href^="/"][role="link"]');
 
-  nodes.forEach(node => {
-    try {
-      const href = node.getAttribute('href');
-      if (href && /^\/[A-Za-z0-9._]+\/?$/.test(href)) {
-        const username = href.replace(/\//g, '');
-        if (username && !list.includes(username)) list.push(username);
-      }
-    } catch (e) {}
-  });
-
-  return list;
+function getCookie(name) {
+  const cookies = `; ${document.cookie}`;
+  const parts = cookies.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
 }
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function afterUrlGenerator(after) {
+  return `https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${ds_user_id}","include_reel":"true","fetch_mutual":"false","first":"24","after":"${after}"}`;
+}
+
+let followedPeople,
+  csrftoken = getCookie("csrftoken"),
+  ds_user_id = getCookie("ds_user_id"),
+  initialURL = `https://www.instagram.com/graphql/query/?query_hash=3dec7e2c57367ef3da3d987d89f9dbc8&variables={"id":"${ds_user_id}","include_reel":"true","fetch_mutual":"false","first":"24"}`,
+  doNext = true,
+  followingList = [],
+  fetchedCount = 0,
+  scrollCycle = 0;
+
+async function startScript() {
+  console.log("%c 🟢 Starting... please wait", "background: #222; color: #bada55; font-size: 20px;");
+
+  while (doNext) {
+    let res;
+    try {
+      res = await fetch(initialURL).then(r => r.json());
+    } catch (err) {
+      console.log("Fetch error, retrying...");
+      continue;
+    }
+
+    followedPeople ||= res.data.user.edge_follow.count;
+    doNext = res.data.user.edge_follow.page_info.has_next_page;
+    initialURL = afterUrlGenerator(res.data.user.edge_follow.page_info.end_cursor);
+
+    const edges = res.data.user.edge_follow.edges;
+    fetchedCount += edges.length;
+
+    // 👉 Ahora guardamos todos (sin filtro)
+    edges.forEach(e => followingList.push(e.node));
+
+    console.clear();
+    console.log(
+      `%c Progress ${fetchedCount}/${followedPeople} (${parseInt(
+        100 * (fetchedCount / followedPeople)
+      )}%)`,
+      "background: #222; color: #bada55; font-size: 30px;"
+    );
+    console.log("%c Still fetching... be patient!", "background: #222; color: #FC4119; font-size: 14px;");
+
+    await sleep(Math.floor(400 * Math.random()) + 1000);
+
+    scrollCycle++;
+    if (scrollCycle > 6) {
+      scrollCycle = 0;
+      console.log(
+        "%c Sleeping 10 seconds to prevent temporary block...",
+        "background: #222; color: #FF0000; font-size: 20px;"
+      );
+      await sleep(10000);
+    }
+  }
+
+  // Guardar archivo
+  const jsonContent = JSON.stringify(followingList, null, 2);
+  const fileName = "followingList.json";
+  const blob = new Blob([jsonContent], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName;
+  a.click();
+
+  console.log("%c ✅ DONE! Archivo descargado: followingList.json", "background: #222; color: #bada55; font-size: 20px;");
+}
+
+startScript();
+```
+
+👉 [Abrir herramienta GUI](https://43t6lx.csb.app/) 
+👉Pegar el archivo que dejo el primer script
+👉Refrescar la pagina del Instagram 
+👉Crear esta variable 
+```javascript
+const listOfUsers = //PASTE HERE THE LIST OF USERS FROM YOUR CLIPBOARD, RESULTS FROM GUI TOOL
+```
+
+### 1️⃣ `startUnfollow()`
+
+Recolecta los usuarios que seguís actualmente en la vista de Instagram.
+
+```javascript
+/**
+ * startUnfollow()
+ * corre el script con la lista ya cargada!!
+ */
+function getCookie(name) {
+  const cookies = `; ${document.cookie}`;
+  const parts = cookies.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function unfollowUserUrl(id) {
+  return `https://www.instagram.com/web/friendships/${id}/unfollow/`;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+const startUnfollow = async () => {
+  let total = 0;
+  let batchCount = 0;
+
+  for (const user of listOfUsers) {
+    try {
+      await fetch(unfollowUserUrl(user.id), {
+        headers: {
+          'content-type': 'application/x-www-form-urlencoded',
+          'x-csrftoken': csrftoken,
+        },
+        method: 'POST',
+        mode: 'cors',
+        credentials: 'include',
+      });
+      console.log(`Unfollowed ${++total}/${listOfUsers.length}`);
+    } catch (e) {
+      console.error('Error al hacer unfollow:', e);
+    }
+
+    await sleep(Math.floor(2000 * Math.random()) + 4000);
+
+    if (++batchCount >= 15) {
+      console.log(
+        '%cDurmiendo 1.5 minutos para evitar bloqueos temporales...',
+        'background: #222; color: #FF0000; font-size: 18px;'
+      );
+      batchCount = 0;
+      await sleep(100000); // 1.5 minutos
+    }
+  }
+
+  console.log(
+    '%c¡Listo! Terminó de hacer unfollow a todos.',
+    'background: #222; color: #bada55; font-size: 20px;'
+  );
+};
+
+startUnfollow();
+
+```
+
 
