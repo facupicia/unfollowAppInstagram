@@ -160,9 +160,9 @@ startScript();
 ```
 
 👉 [Abrir herramienta GUI](https://43t6lx.csb.app/) 
-👉Pegar el archivo que dejo el primer script
-👉Refrescar la pagina del Instagram 
-👉Crear esta variable 
+- 👉Pegar el archivo que dejo el primer script
+- 👉Refrescar la pagina del Instagram 
+- 👉Crear esta variable 
 ```javascript
 const listOfUsers = //PASTE HERE THE LIST OF USERS FROM YOUR CLIPBOARD, RESULTS FROM GUI TOOL
 ```
@@ -234,5 +234,6 @@ const startUnfollow = async () => {
 startUnfollow();
 
 ```
+
 
 
