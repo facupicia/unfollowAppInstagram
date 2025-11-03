@@ -98,12 +98,13 @@ let followedPeople,
   doNext = true,
   followingList = [],
   fetchedCount = 0,
-  scrollCycle = 0;
+  scrollCycle = 0,
+  MAX_TO_SAVE = 300; // 👈 límite de followers
 
 async function startScript() {
   console.log("%c 🟢 Starting... please wait", "background: #222; color: #bada55; font-size: 20px;");
 
-  while (doNext) {
+  while (doNext && followingList.length < MAX_TO_SAVE) {
     let res;
     try {
       res = await fetch(initialURL).then(r => r.json());
@@ -117,15 +118,21 @@ async function startScript() {
     initialURL = afterUrlGenerator(res.data.user.edge_follow.page_info.end_cursor);
 
     const edges = res.data.user.edge_follow.edges;
-    fetchedCount += edges.length;
 
-    // 👉 Ahora guardamos todos (sin filtro)
-    edges.forEach(e => followingList.push(e.node));
+    // Solo agregamos hasta llegar a 300
+    for (const e of edges) {
+      if (followingList.length >= MAX_TO_SAVE) {
+        doNext = false;
+        break;
+      }
+      followingList.push(e.node);
+      fetchedCount++;
+    }
 
     console.clear();
     console.log(
-      `%c Progress ${fetchedCount}/${followedPeople} (${parseInt(
-        100 * (fetchedCount / followedPeople)
+      `%c Progress ${followingList.length}/${Math.min(followedPeople, MAX_TO_SAVE)} (${parseInt(
+        100 * (followingList.length / MAX_TO_SAVE)
       )}%)`,
       "background: #222; color: #bada55; font-size: 30px;"
     );
@@ -146,17 +153,18 @@ async function startScript() {
 
   // Guardar archivo
   const jsonContent = JSON.stringify(followingList, null, 2);
-  const fileName = "followingList.json";
+  const fileName = "followingList_300.json";
   const blob = new Blob([jsonContent], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = fileName;
   a.click();
 
-  console.log("%c ✅ DONE! Archivo descargado: followingList.json", "background: #222; color: #bada55; font-size: 20px;");
+  console.log(`%c ✅ DONE! Archivo con ${followingList.length} usuarios guardado: followingList_300.json`, "background: #222; color: #bada55; font-size: 20px;");
 }
 
 startScript();
+
 ```
 
 👉 [Abrir herramienta GUI](https://43t6lx.csb.app/) 
@@ -234,6 +242,7 @@ const startUnfollow = async () => {
 startUnfollow();
 
 ```
+
 
 
 
