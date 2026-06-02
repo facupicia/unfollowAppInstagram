@@ -179,10 +179,12 @@ const listOfUsers = //PASTE HERE THE LIST OF USERS FROM YOUR CLIPBOARD, RESULTS 
 
 Recolecta los usuarios que seguís actualmente en la vista de Instagram.
 
+> **v2 — bloqueos suaves detectados.** Instagram devuelve `200 OK` con `status: "fail"` cuando empieza a aplicar rate limit, por eso el script "sigue corriendo" pero no descuenta. Esta versión **verifica la respuesta**, reintenta y aplica pausas más largas (3-5 min entre lotes + 10 min si detecta patrón de bloqueo).
+
 ```javascript
 /**
- * startUnfollow()
- * corre el script con la lista ya cargada!!
+ * startUnfollow() — v2
+ * Verifica cada respuesta, reintenta y aplica backoff ante bloqueos suaves.
  */
 function getCookie(name) {
   const cookies = `; ${document.cookie}`;
@@ -201,46 +203,112 @@ function unfollowUserUrl(id) {
 
 const csrftoken = getCookie('csrftoken');
 
+// ---- Configuración ----
+const BATCH_SIZE         = 10;     // unfollows por lote
+const BATCH_COOLDOWN_MIN = 180000; // 3 min
+const BATCH_COOLDOWN_MAX = 300000; // 5 min
+const ACTION_DELAY_MIN   = 6000;   // 6 s mínimo entre unfollows
+const ACTION_DELAY_MAX   = 14000;  // 14 s máximo
+const FAILURE_THRESHOLD  = 3;      // fallos seguidos → pausa larga
+const LONG_PAUSE         = 600000; // 10 min al detectar bloqueo
+const MAX_RETRIES        = 2;      // reintentos por usuario
+
 const startUnfollow = async () => {
   let total = 0;
+  let okCount = 0;
+  let failCount = 0;
   let batchCount = 0;
+  let consecutiveFailures = 0;
 
   for (const user of listOfUsers) {
-    try {
-      await fetch(unfollowUserUrl(user.id), {
-        headers: {
-          'content-type': 'application/x-www-form-urlencoded',
-          'x-csrftoken': csrftoken,
-        },
-        method: 'POST',
-        mode: 'cors',
-        credentials: 'include',
-      });
-      console.log(`Unfollowed ${++total}/${listOfUsers.length}`);
-    } catch (e) {
-      console.error('Error al hacer unfollow:', e);
+    let attempt = 0;
+    let success = false;
+
+    while (attempt < MAX_RETRIES && !success) {
+      try {
+        const res = await fetch(unfollowUserUrl(user.id), {
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-csrftoken': csrftoken,
+            'x-ig-app-id': '936619743392459',
+            'x-requested-with': 'XMLHttpRequest',
+            'referer': 'https://www.instagram.com/',
+            'origin': 'https://www.instagram.com',
+          },
+          method: 'POST',
+          mode: 'cors',
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data.status === 'ok') {
+            success = true;
+            okCount++;
+            consecutiveFailures = 0;
+          } else {
+            console.warn(`%c[!] ${user.username} → status=${data.status || 'desconocido'}`, 'color: orange');
+            consecutiveFailures++;
+          }
+        } else if (res.status === 429) {
+          console.warn('%c[!] HTTP 429 (rate limit). Pausando 5 min...', 'color: orange');
+          await sleep(300000);
+          consecutiveFailures++;
+        } else {
+          console.warn(`%c[!] ${user.username} → HTTP ${res.status}`, 'color: orange');
+          consecutiveFailures++;
+        }
+      } catch (e) {
+        console.error(`%c[x] ${user.username} → ${e.message}`, 'color: red');
+        consecutiveFailures++;
+      }
+      attempt++;
+      if (!success && attempt < MAX_RETRIES) await sleep(3000);
     }
 
-    await sleep(Math.floor(2000 * Math.random()) + 4000);
+    if (!success) failCount++;
+    total++;
 
-    if (++batchCount >= 15) {
+    console.log(
+      `%c[${total}/${listOfUsers.length}] ${user.username} → ${success ? 'OK' : 'FALLÓ'} | ok: ${okCount} | fallidos: ${failCount}`,
+      `color: ${success ? '#bada55' : '#FC4119'}; font-weight: bold`
+    );
+
+    // Pausa larga si hay muchos fallos consecutivos
+    if (consecutiveFailures >= FAILURE_THRESHOLD) {
       console.log(
-        '%cDurmiendo 1.5 minutos para evitar bloqueos temporales...',
+        `%c⏸ ${consecutiveFailures} fallos seguidos. Pausa de 10 min para que Instagram se calme...`,
         'background: #222; color: #FF0000; font-size: 18px;'
       );
+      consecutiveFailures = 0;
+      await sleep(LONG_PAUSE);
+    } else {
+      // Delay aleatorio entre acciones (6-14 s)
+      await sleep(
+        ACTION_DELAY_MIN + Math.floor(Math.random() * (ACTION_DELAY_MAX - ACTION_DELAY_MIN))
+      );
+    }
+
+    // Cooldown entre lotes
+    if (++batchCount >= BATCH_SIZE) {
       batchCount = 0;
-      await sleep(100000); // 1.5 minutos
+      const cooldown = BATCH_COOLDOWN_MIN +
+        Math.floor(Math.random() * (BATCH_COOLDOWN_MAX - BATCH_COOLDOWN_MIN));
+      console.log(
+        `%c☕ Lote completado. Cooldown de ${Math.round(cooldown / 60000)} min...`,
+        'background: #222; color: #FFD700; font-size: 18px;'
+      );
+      await sleep(cooldown);
     }
   }
 
   console.log(
-    '%c¡Listo! Terminó de hacer unfollow a todos.',
+    `%c✅ Terminado. ${okCount} unfollows OK · ${failCount} fallidos.`,
     'background: #222; color: #bada55; font-size: 20px;'
   );
 };
 
 startUnfollow();
-
 ```
 
 
